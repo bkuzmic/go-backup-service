@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+    name: backup-service
+spec:
+    replicas: 1
+    selector:
+        matchLabels:
+            app: backup-service
+    template:
+        metadata:
+            labels:
+                app: backup-service
+        spec:
+            containers:
+                - name: backup-service-container
+                  image: bkuzmic2/go-backup-service:latest
+                  imagePullPolicy:  Always
+                  ports:
+                    - containerPort: 8000
+                  livenessProbe:
+                    httpGet:
+                      path: /health
+                      port: 8000
+                      scheme: HTTP
+                    initialDelaySeconds: 5
+                    periodSeconds: 15
+                    timeoutSeconds: 5
+                  readinessProbe:
+                    httpGet:
+                      path: /readiness
+                      port: 8000
+                      scheme: HTTP
+                    initialDelaySeconds: 5
+                    timeoutSeconds: 1   
+                  env:
+                    - name: REDIS_URL
+                      valueFrom:
+                        configMapKeyRef:
+                            name: app-configmap
+                            key: redis-service
+
+                    - name: REDIS_PASSWORD
+                      valueFrom:
+                        secretKeyRef:
+                            name: app-secret
+                            key: redis-password
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: backup-service
+spec:
+  type: NodePort
+  ports:
+  - name: http
+    port: 8080
+    targetPort: 8000
+    nodePort: 31000
+    
+  selector:
+      app: backup-service
+  
